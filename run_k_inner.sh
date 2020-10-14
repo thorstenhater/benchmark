@@ -10,7 +10,7 @@ do
       printf "\t\t%8d\n" $k
       srun ./bench 10 $s $k $a 128 0 >> tmp
     done
-    echo 'kernels_per_stream,throughput' >> $ofile
+    echo 'kernels_per_stream, throughput(MB/s)' >> $ofile
     awk '{print $3, $7}' tmp >> $ofile
     rm tmp
   done

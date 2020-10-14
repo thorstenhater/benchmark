@@ -143,16 +143,6 @@ int main(int argc, char** argv) {
 
     const unsigned array_size = 2 << pow;
 
-<<<<<<< Updated upstream
-    std::cout << "array_size          = " << array_size  << std::endl;
-    std::cout << "epochs              = " << n_epochs << std::endl;
-    std::cout << "streams             = " << n_streams << std::endl;
-    std::cout << "kernels_per_stream  = " << n_kernels_per_stream << std::endl;
-    std::cout << "block_dim           = " << block_dim << std::endl;
-    std::cout << "threading           = " << (multithreaded ? std::to_string(n_streams)+" threads" : "1 thread") << std::endl;
-
-=======
->>>>>>> Stashed changes
     // Run the newton kernel a bunch of times on a larger array to "warm up"
     {
         unsigned ni = 2<<24;
@@ -192,7 +182,6 @@ int main(int argc, char** argv) {
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
-    std::cout << "epochs, streams, kernels_per_stream, size, block_dim, multithreaded, throughput(MB/s)\n";
     std::cout << n_epochs  << ", " 
               << n_streams << ", " 
               << n_kernels_per_stream << ", "

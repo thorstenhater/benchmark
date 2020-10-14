@@ -1,13 +1,14 @@
 for a in 10 15 20
 do
   printf "%8d\n" $a
-  for k in 1 2 4 8 16 32
+  for ks in 8 16 32 64
   do
-    printf "\t%8d\n" $k
-    ofile=out_s_${a}_${k}.csv
-    for s in 1 2 4 8 16 32
+    printf "\t%8d\n" $ks
+    ofile=out_ks_${a}_${ks}.csv
+    for s in 1 2 4 8
     do
-      printf "\t\t%8d\n" $s
+      let k=$ks/$s
+      printf "\t\t%8d %8d\n" $s $k
       srun ./bench 10 $s $k $a 128 0 >> tmp
     done
     echo 'streams, throughput(MB/s)' >> $ofile
@@ -15,3 +16,4 @@ do
     rm tmp
   done
 done
+
