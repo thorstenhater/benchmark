@@ -16,7 +16,7 @@ for a in arr_sizes:
     filename = 'results_ks/out_ks_'+str(a)+'_'+str(k)+'.csv'
     csv = pd.read_csv(filename) 
     out[-1].append(csv)
-    max_y[-1].append(max(csv["throughput(MB/s)"]))
+    max_y[-1].append(max(csv["throughput"]))
 
 
 fig, ax = plt.subplots(nrows=len(arr_sizes), ncols=len(kernels))
@@ -24,7 +24,7 @@ fig, ax = plt.subplots(nrows=len(arr_sizes), ncols=len(kernels))
 for r in range(len(ax)):
   for c in range(len(ax[r])):
     p = ax[r][c]
-    p.plot(out[r][c]["streams"], out[r][c]["throughput(MB/s)"], '--b', marker="o")
+    p.plot(out[r][c]["streams"], out[r][c]["throughput"], '--b', marker="o")
     m = max(max_y[r])
     p.set_ylim(0, m+0.1*m)
     p.set_xscale('log')
