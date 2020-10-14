@@ -11,7 +11,7 @@ do
       printf "\t\t%8d %8d\n" $s $k
       srun ./bench 10 $s $k $a 128 0 >> tmp
     done
-    echo 'streams, throughput' >> $ofile
+    echo 'streams,throughput' >> $ofile
     awk '{print $2, $7}' tmp >> $ofile
     rm tmp
   done
