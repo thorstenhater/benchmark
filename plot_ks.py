@@ -5,8 +5,8 @@ import pandas as pd
 max_y = []
 out = []
 
-kernels   = [1, 2, 4, 8]
-streams   = [8, 16, 32, 64]
+streams   = [1, 2, 4, 8]
+kernels   = [8, 16, 32, 64]
 arr_sizes = [10, 15, 20]
 
 for a in arr_sizes: 
@@ -24,7 +24,7 @@ fig, ax = plt.subplots(nrows=len(arr_sizes), ncols=len(kernels))
 for r in range(len(ax)):
   for c in range(len(ax[r])):
     p = ax[r][c]
-    p.plot(out[r][c]["streams"], out[r][c]["throughput"], '--b', marker="o")
+    p.plot(out[r][c]["streams"], out[r][c]["throughput"], '--g', marker="o")
     m = max(max_y[r])
     p.set_ylim(0, m+0.1*m)
     p.set_xscale('log')
