@@ -82,6 +82,25 @@ void axpy(double *y, const double* x, double alpha, unsigned n) {
         y[i] += alpha*x[i];
     }
 }
+
+void check_results(double *xd, double* xh, unsigned n) {
+        double* xc = malloc_host<double>(n);
+        std::copy(xh, xh+n, xc);
+
+        newton(xc, n);
+
+        copy_to_host<double>(xd, xh, n);
+
+        for (unsigned i = 0; i < n; ++i) {
+            if (std::abs(xc[i] - xh[i])>1e-9) {
+                std::cout << "wrong at " << i << " " << xc[i] << " " << xh[i] << std::endl;
+                exit(1);
+            }
+        }
+        std::cout << "SUCCESS" << std::endl;
+        std::free(xc);
+
+}
 } // namespace validate
 
 long run(unsigned n_epochs,
@@ -197,25 +216,6 @@ int main(int argc, char** argv) {
     auto time_us = run(n_epochs, n_streams, n_kernels_per_stream, array_size, block_dim, xd, yd, multithreaded);
     stop_gpu_prof();
 
-    if (false) {
-        double* xc = malloc_host<double>(array_size);
-        std::fill(xc, xc+array_size, 2.0);
-
-        validate::newton(xc, array_size);
-
-        auto status = cudaMemcpy(xh, xd, array_size*sizeof(double), cudaMemcpyDeviceToHost);
-        check_status(status);
-
-        for (unsigned i = 0; i < array_size; ++i) {
-            if (std::abs(xc[i] - xh[i])>1e-9) {
-                std::cout << "wrong at " << i << " " << xc[i] << " " << xh[i] << std::endl;
-                exit(1);
-            }
-        }
-        std::cout << "SUCCESS" << std::endl;
-        std::free(xc);
-    }
-
     std::cout << n_epochs  << ", " 
               << n_streams << ", " 
               << n_kernels_per_stream << ", "
@@ -223,6 +223,9 @@ int main(int argc, char** argv) {
               << block_dim << ", "
               << multithreaded << ", "
               << n_epochs * (array_size * sizeof(double)) / (double)(time_us) << "\n";
+              //<< (double)(time_us) << "\n";
+
+    //validate::check_results(xd, xh, array_size);
 
     std::free(xh);
     std::free(yh);
