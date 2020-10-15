@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "util_cuda.h"
+#include "threading.hpp"
 
 // read command line arguments
 int read_arg(int argc, char** argv, int index, int default_value) {
@@ -61,15 +62,36 @@ void newton(double *x, unsigned n) {
         x[i] = x0;
     }
 }
+} // namespace kernels
+
+// For validation
+namespace validate {
+
+void newton(double *x, unsigned n) {
+    for (unsigned i = 0; i < n; ++i) {
+        auto x0 = x[i];
+        for(int iter=0; iter<7; ++iter) {
+            x0 -= (exp(cos(x0))-2)/(-sin(x0)*exp(cos(x0)));
+        }
+        x[i] = x0;
+    }
 }
 
-long run_newton(unsigned n_epochs,
-                unsigned n_streams,
-                unsigned n_kernels_per_stream,
-                unsigned array_size,
-                unsigned block_dim,
-                double* x,
-                bool multithreaded)
+void axpy(double *y, const double* x, double alpha, unsigned n) {
+    for (unsigned i = 0; i < n; ++i) {
+        y[i] += alpha*x[i];
+    }
+}
+} // namespace validate
+
+long run(unsigned n_epochs,
+         unsigned n_streams,
+         unsigned n_kernels_per_stream,
+         unsigned array_size,
+         unsigned block_dim,
+         double* x,
+         double* y,
+         bool multithreaded)
 {
     // n_kernels: total number of kernel launch we will do over all the streams
     const unsigned n_kernels = n_kernels_per_stream * n_streams;
@@ -96,22 +118,17 @@ long run_newton(unsigned n_epochs,
             auto launch_grid_dim =  (kernel_idx == (n_kernels-1)) ? grid_dim_last : grid_dim;
 
             kernels::newton<<<launch_grid_dim, block_dim, 0, streams[stream_idx]>>>(x+kernel_start, launch_arr_size);
+            //kernels::axpy<<<launch_grid_dim, block_dim, 0, streams[stream_idx]>>>(x+kernel_start, y+kernel_start, 3.5, launch_arr_size);
         }
 
     };
 
+    threading::task_system ts(n_streams);
+
     auto start = std::chrono::system_clock::now();
     if (multithreaded) {
         for (unsigned i = 0; i < n_epochs; ++i) {
-            std::vector<std::thread> threads;
-            for (unsigned stream_idx = 0; stream_idx < n_streams; ++stream_idx) {
-                threads.push_back(std::thread(thread_runner, stream_idx));
-            }
-
-            // wait for all the cpu threads to have finished
-            for (unsigned stream_idx = 0; stream_idx < n_streams; ++stream_idx) {
-                threads[stream_idx].join();
-            }
+            threading::parallel_for::apply(0, n_streams, &ts, [&](int i) {thread_runner(i);});
 
             // wait for all gpu kernels to have completed
             device_synch();
@@ -177,8 +194,27 @@ int main(int argc, char** argv) {
     device_synch();
 
     start_gpu_prof();
-    auto time_us = run_newton(n_epochs, n_streams, n_kernels_per_stream, array_size, block_dim, xd, multithreaded);
+    auto time_us = run(n_epochs, n_streams, n_kernels_per_stream, array_size, block_dim, xd, yd, multithreaded);
     stop_gpu_prof();
+
+    if (false) {
+        double* xc = malloc_host<double>(array_size);
+        std::fill(xc, xc+array_size, 2.0);
+
+        validate::newton(xc, array_size);
+
+        auto status = cudaMemcpy(xh, xd, array_size*sizeof(double), cudaMemcpyDeviceToHost);
+        check_status(status);
+
+        for (unsigned i = 0; i < array_size; ++i) {
+            if (std::abs(xc[i] - xh[i])>1e-9) {
+                std::cout << "wrong at " << i << " " << xc[i] << " " << xh[i] << std::endl;
+                exit(1);
+            }
+        }
+        std::cout << "SUCCESS" << std::endl;
+        std::free(xc);
+    }
 
     std::cout << n_epochs  << ", " 
               << n_streams << ", " 
@@ -195,4 +231,3 @@ int main(int argc, char** argv) {
 
     return 0;
 }
-
