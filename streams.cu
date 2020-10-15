@@ -63,7 +63,7 @@ void newton(double *x, unsigned n) {
 }
 }
 
-void run_newton(unsigned n_epochs,
+long run_newton(unsigned n_epochs,
                 unsigned n_streams,
                 unsigned n_kernels_per_stream,
                 unsigned array_size,
@@ -87,7 +87,6 @@ void run_newton(unsigned n_epochs,
         cudaStreamCreate(&streams[i]);
     }
 
-    //
     auto thread_runner = [&](unsigned stream_idx) {
         for (unsigned k = 0; k < n_kernels_per_stream; ++k) {
             unsigned kernel_idx   = k + stream_idx * n_kernels_per_stream;
@@ -101,6 +100,7 @@ void run_newton(unsigned n_epochs,
 
     };
 
+    auto start = std::chrono::system_clock::now();
     if (multithreaded) {
         for (unsigned i = 0; i < n_epochs; ++i) {
             std::vector<std::thread> threads;
@@ -126,11 +126,15 @@ void run_newton(unsigned n_epochs,
             device_synch();
         }
     }
+    auto end = std::chrono::system_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
     for (int i = 0; i < n_streams; i++) {
         cudaStreamDestroy(streams[i]);
     }
     delete[] streams;
+
+    return elapsed.count();
 }
 
 int main(int argc, char** argv) {
@@ -171,16 +175,10 @@ int main(int argc, char** argv) {
     copy_to_device<double>(yh, yd, array_size);
 
     device_synch();
-    auto start = std::chrono::system_clock::now();
 
     start_gpu_prof();
-
-    run_newton(n_epochs, n_streams, n_kernels_per_stream, array_size, block_dim, xd, multithreaded);
-
+    auto time_us = run_newton(n_epochs, n_streams, n_kernels_per_stream, array_size, block_dim, xd, multithreaded);
     stop_gpu_prof();
-
-    auto end = std::chrono::system_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
     std::cout << n_epochs  << ", " 
               << n_streams << ", " 
@@ -188,7 +186,7 @@ int main(int argc, char** argv) {
               << array_size << ", "
               << block_dim << ", "
               << multithreaded << ", "
-              << n_epochs * (array_size * sizeof(double)) / (double)(elapsed.count()) << "\n";
+              << n_epochs * (array_size * sizeof(double)) / (double)(time_us) << "\n";
 
     std::free(xh);
     std::free(yh);

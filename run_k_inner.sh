@@ -8,7 +8,7 @@ do
     for k in 1 2 4 8 16 32
     do
       printf "\t\t%8d\n" $k
-      srun ./bench 10 $s $k $a 128 0 >> tmp
+      srun ./bench 10000 $s $k $a 128 0 >> tmp
     done
     echo 'kernels_per_stream,throughput' >> $ofile
     awk '{print $3, $7}' tmp >> $ofile
