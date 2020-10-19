@@ -53,7 +53,8 @@ void destroy_stream(cudaStream_t& s) {
 }
 
 static void device_synch() {
-    cudaDeviceSynchronize();
+    auto status = cudaDeviceSynchronize();
+    check_status(status);
 }
 
 static void start_gpu_prof() {
@@ -63,3 +64,9 @@ static void start_gpu_prof() {
 static void stop_gpu_prof() {
     cudaProfilerStop();
 }
+
+static size_t num_blocks(size_t n, size_t threads) {
+    return (n + threads - 1)/threads;
+}
+
+#define cuda_api(f, ...) do { check_status(f(__VA_ARGS__)); } while (0)
