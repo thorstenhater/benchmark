@@ -6,63 +6,6 @@
 
 #include "util_cuda.h"
 
-// read command line arguments
-int read_arg(int argc, char** argv, int index, int default_value) {
-    if(argc>index) {
-        try {
-            auto n = std::stoi(argv[index]);
-            if(n<0) {
-                return default_value;
-            }
-            return n;
-        }
-        catch (std::exception e) {
-            std::cout << "error : invalid argument \'" << argv[index]
-                      << "\', expected a positive integer." << std::endl;
-            exit(1);
-        }
-    }
-
-    return default_value;
-}
-
-namespace kernels {
-
-__global__
-void empty(unsigned n) {}
-
-__global__
-void axpy(double *y, const double* x, double alpha, unsigned n) {
-    auto i = threadIdx.x + blockIdx.x*blockDim.x;
-
-    if (i<n) {
-        y[i] += alpha*x[i];
-    }
-}
-
-__device__
-double f(double x) {
-    return exp(cos(x))-2;
-};
-
-__device__
-double fp(double x) {
-    return -sin(x) * exp(cos(x));
-};
-
-__global__
-void newton(double *x, unsigned n) {
-    auto i = threadIdx.x + blockIdx.x*blockDim.x;
-    if (i<n) {
-        auto x0 = x[i];
-        for(int iter=0; iter<7; ++iter) {
-            x0 -= f(x0)/fp(x0);
-        }
-        x[i] = x0;
-    }
-}
-}
-
 void run_newton(unsigned n_epochs,
                 unsigned n_streams,
                 unsigned n_kernels_per_stream,

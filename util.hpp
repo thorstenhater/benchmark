@@ -18,4 +18,5 @@ struct benchmark_parameters {
   size_t repetitions, epochs;
   size_t array_size;
   size_t slots, kernels_per_slot;
+  size_t use_threading;
 };
