@@ -42,6 +42,16 @@ void copy_to_host(T* from, T* to, size_t n) {
     check_status(status);
 }
 
+void create_stream(cudaStream_t* s) {
+    auto status = cudaStreamCreate(s);
+    check_status(status);
+}
+
+void destroy_stream(cudaStream_t& s) {
+    auto status = cudaStreamDestroy(s);
+    check_status(status);
+}
+
 static void device_synch() {
     cudaDeviceSynchronize();
 }
