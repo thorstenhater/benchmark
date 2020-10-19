@@ -64,7 +64,6 @@ void newton(double *x, unsigned n) {
 }
 } // namespace kernels
 
-// For validation
 namespace validate {
 
 void newton(double *x, unsigned n) {
@@ -112,20 +111,24 @@ long run(unsigned n_epochs,
          double* y,
          bool multithreaded)
 {
-    // n_kernels: total number of kernel launch we will do over all the streams
+    // Total number of kernel launches over all the streams
     const unsigned n_kernels = n_kernels_per_stream * n_streams;
-    // array_size / kernels : size of the portion of the array that each kernel launch should be processing
+
+    // Size of the portion of the array that each kernel launch is processing
     const unsigned k_arr_size = array_size/n_kernels;
-    // rounded up division to know how many gpu thread blocks to spawn per kernel launch
+
+    // Rounded up division to determine the number of gpu thread blocks to spawn per kernel launch
     const unsigned grid_dim = (k_arr_size-1)/block_dim + 1;
-    // leftover size for the array
+
+    // Leftover size for the last array
     const unsigned k_arr_size_last = array_size - (k_arr_size * (n_kernels-1));
-    // size of the last grid of last kernel launch
+
+    // Size of the last grid of the last kernel launch
     const unsigned grid_dim_last = (k_arr_size_last-1)/block_dim + 1;
 
-    cudaStream_t* streams = new cudaStream_t[n_streams];
+    std::vector<cudaStream_t> streams(n_streams);
     for (int i = 0; i < n_streams; i++) {
-        cudaStreamCreate(&streams[i]);
+        create_stream(&streams[i]);
     }
 
     auto thread_runner = [&](unsigned stream_idx) {
@@ -137,9 +140,7 @@ long run(unsigned n_epochs,
             auto launch_grid_dim =  (kernel_idx == (n_kernels-1)) ? grid_dim_last : grid_dim;
 
             kernels::newton<<<launch_grid_dim, block_dim, 0, streams[stream_idx]>>>(x+kernel_start, launch_arr_size);
-            //kernels::axpy<<<launch_grid_dim, block_dim, 0, streams[stream_idx]>>>(x+kernel_start, y+kernel_start, 3.5, launch_arr_size);
         }
-
     };
 
     threading::task_system ts(n_streams);
@@ -148,8 +149,6 @@ long run(unsigned n_epochs,
     if (multithreaded) {
         for (unsigned i = 0; i < n_epochs; ++i) {
             threading::parallel_for::apply(0, n_streams, &ts, [&](int i) {thread_runner(i);});
-
-            // wait for all gpu kernels to have completed
             device_synch();
         }
     }
@@ -158,7 +157,6 @@ long run(unsigned n_epochs,
             for (unsigned stream_idx = 0; stream_idx < n_streams; ++stream_idx) {
                 thread_runner(stream_idx);
             }
-            // wait for all gpu kernels to have completed
             device_synch();
         }
     }
@@ -166,9 +164,8 @@ long run(unsigned n_epochs,
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
     for (int i = 0; i < n_streams; i++) {
-        cudaStreamDestroy(streams[i]);
+        destroy_stream(streams[i]);
     }
-    delete[] streams;
 
     return elapsed.count();
 }
@@ -223,9 +220,8 @@ int main(int argc, char** argv) {
               << block_dim << ", "
               << multithreaded << ", "
               << n_epochs * (array_size * sizeof(double)) / (double)(time_us) << "\n";
-              //<< (double)(time_us) << "\n";
 
-    //validate::check_results(xd, xh, array_size);
+    validate::check_results(xd, xh, array_size);
 
     std::free(xh);
     std::free(yh);
