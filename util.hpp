@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cassert>
 #include <memory>
 #include <string>
@@ -10,7 +12,7 @@
 using timer = std::chrono::high_resolution_clock;
 using usecs = std::chrono::microseconds;
 
-static double delta_t(const timer::time_point t0, const timer::time_point t1) {
+inline double delta_t(const timer::time_point t0, const timer::time_point t1) {
   return std::chrono::duration_cast<usecs>(t1 - t0).count();
 }
 
@@ -22,11 +24,11 @@ struct benchmark_parameters {
 };
 
 template<typename T>
-T* offset_parameters(T* ptr, size_t step, size_t idx) {
+inline T* offset_parameters(T* ptr, size_t step, size_t idx) {
   return ptr + idx*step;
 }
 
 template<typename T>
-T offset_parameter(T val, size_t, size_t) {
+inline T offset_parameter(T val, size_t, size_t) {
   return val;
 }
