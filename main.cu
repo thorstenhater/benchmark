@@ -1,10 +1,7 @@
-#include <chrono> 
-#include <iostream>
-#include <string>
-#include <thread>
-#include <vector>
+#include "util.hpp"
+#include "util_cuda.hpp"
 
-
+#include "streams.hcu"
 #include "graphs.hcu"
 
 // read command line arguments
@@ -34,10 +31,10 @@ int main(int argc, char** argv) {
     parameters.kernels_per_slot = read_arg(argc, argv, 3, 4);
     parameters.array_size       = 1 << read_arg(argc, argv, 4, 20);
     parameters.threads          = read_arg(argc, argv, 5, 128);
-    parameters.use_threading    = read_arg(argc, argv, 6, 0);
 
     auto total_kernels = parameters.slots*parameters.kernels_per_slot;
-    auto elements_per_kernel = parameters.array_size/total_kernels;
+    assert(0 == parameters.array_size % total_kernels);
+    p.array_size_per_kernel = parameters.array_size/total_kernels;
     parameters.blocks = (elements_per_kernel + parameters.threads - 1)/parameters.threads;
 
     std::cout << "array_size          = " << parameters.array_size  << std::endl;
@@ -45,7 +42,6 @@ int main(int argc, char** argv) {
     std::cout << "slots               = " << parameters.slots << std::endl;
     std::cout << "kernels_per_slots   = " << parameters.kernels_per_slot << std::endl;
     std::cout << "block_dim           = " << parameters.threads << std::endl;
-    std::cout << "threading           = " << (parameters.use_threading ? std::to_string(parameters.slots) + " threads" : "1 thread") << std::endl;
 
     double* xh = malloc_host<double>(parameters.array_size);
     double* yh = malloc_host<double>(parameters.array_size);

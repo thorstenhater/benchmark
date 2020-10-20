@@ -55,7 +55,6 @@ void add_dependencies(cudaGraph_t& graph, const std::vector<cudaGraphNode_t>& fr
     cuda_api(cudaGraphAddDependencies, graph, from.data(), to.data(), to.size());
 }
 
-
 template<typename K, typename... As>
 auto make_graph(const benchmark_parameters& p, K func, As... as) {
     std::vector<void*> args(sizeof...(As), nullptr);
