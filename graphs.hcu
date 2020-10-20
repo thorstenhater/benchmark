@@ -54,11 +54,12 @@ auto make_graph(const benchmark_parameters& p, K func, As... as) {
     cudaGraph_t graph = {0};
     cuda_api(cudaGraphCreate, &graph, 0);
 
-    // Create initial fan-out dummy
-    auto node = add_empty_node(graph);
-    to_destroy.push_back(node);
-
     std::vector<cudaGraphNode_t> to_destroy;
+
+    // Create initial fan-out dummy
+    auto last = add_empty_node(graph);
+    to_destroy.push_back(last);
+
     for (auto epoch = 0ul; epoch < p.epochs; ++epoch) {
         // last row of `slots` kernels
         std::vector<cudaGraphNode_t> old_nodes;
