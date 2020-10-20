@@ -24,11 +24,30 @@ struct benchmark_parameters {
 };
 
 template<typename T>
-inline T* offset_parameters(T* ptr, size_t step, size_t idx) {
+inline T* offset_parameter(T* ptr, size_t step, size_t idx) {
   return ptr + idx*step;
 }
 
 template<typename T>
 inline T offset_parameter(T val, size_t, size_t) {
   return val;
+}
+
+// read command line arguments
+inline int read_arg(int argc, char** argv, int index, int default_value) {
+    if(argc>index) {
+        try {
+            auto n = std::stoi(argv[index]);
+            if(n<0) {
+                return default_value;
+            }
+            return n;
+        }
+        catch (std::exception e) {
+            std::cout << "error : invalid argument \'" << argv[index]
+                      << "\', expected a positive integer." << std::endl;
+            exit(1);
+        }
+    }
+    return default_value;
 }

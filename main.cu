@@ -4,26 +4,6 @@
 #include "streams.hcu"
 #include "graphs.hcu"
 
-// read command line arguments
-int read_arg(int argc, char** argv, int index, int default_value) {
-    if(argc>index) {
-        try {
-            auto n = std::stoi(argv[index]);
-            if(n<0) {
-                return default_value;
-            }
-            return n;
-        }
-        catch (std::exception e) {
-            std::cout << "error : invalid argument \'" << argv[index]
-                      << "\', expected a positive integer." << std::endl;
-            exit(1);
-        }
-    }
-
-    return default_value;
-}
-
 int main(int argc, char** argv) {
     benchmark_parameters parameters;
     parameters.epochs           = read_arg(argc, argv, 1, 10);

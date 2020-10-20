@@ -2,14 +2,17 @@
 #include "util_cuda.h"
 #include "kernels.hcu"
 
+#define cuda_api(f, ...) do { check_status(f(__VA_ARGS__)); } while (0)
+
 cudaGraphNode_t add_empty_node(cudaGraph_t& graph) {
     cudaGraphNode_t node = {0};
     cuda_api(cudaGraphAddEmptyNode, &node, graph, nullptr, 0);
     return node;
 }
 
-template<class K>
-cudaGraphNode_t add_kernel_node(cudaGraph_t& graph, const benchmark_parameters& p, K kernel, const std::vector<void*> args) {
+template<typename K, typename... As>
+cudaGraphNode_t add_kernel_node(cudaGraph_t& graph, const benchmark_parameters& p, K kernel, As... as) {
+    std::vector<void*> args{&as...};
     cudaGraphNode_t node = {0};
     cudaKernelNodeParams params = {0};
     params.func           = (void*) kernel;
@@ -18,20 +21,8 @@ cudaGraphNode_t add_kernel_node(cudaGraph_t& graph, const benchmark_parameters& 
     params.sharedMemBytes = 0;
     params.kernelParams   = (void**) args.data();
     params.extra          = nullptr;
-
     cuda_api(cudaGraphAddKernelNode, &node, graph, nullptr, 0, &params);
-
     return node;
-}
-
-template<int N, int ix, typename... Ts>
-constexpr void set_args(std::unique_ptr<std::tuple<Ts...>>& values, std::vector<void*>& pointers) {
-    if constexpr(ix >= N) {
-        return;
-    } else {
-        pointers[ix] = &std::get<ix>(*values);
-        set_args<N, ix + 1, Ts...>(values, pointers);
-    }
 }
 
 void add_dependencies(cudaGraph_t& graph, const cudaGraphNode_t& from, const cudaGraphNode_t& to) {
@@ -55,37 +46,44 @@ void add_dependencies(cudaGraph_t& graph, const std::vector<cudaGraphNode_t>& fr
     cuda_api(cudaGraphAddDependencies, graph, from.data(), to.data(), to.size());
 }
 
+// Construct a graph consisting of `epochs` fork/join pairs. Each pair is a
+// dummy node followed by a fan-out to `slots` concurrent kernel streams of
+// `kernels_per_slot` kernels per stream, followed by a fan-in into a dummy node.
 template<typename K, typename... As>
 auto make_graph(const benchmark_parameters& p, K func, As... as) {
-    std::vector<void*> args(sizeof...(As), nullptr);
-    auto tmp = std::make_unique<std::tuple<As...>>(as...);
-    set_args<sizeof...(As), 0, As...>(tmp, args);
-
     cudaGraph_t graph = {0};
     cuda_api(cudaGraphCreate, &graph, 0);
 
+    // Create initial fan-out dummy
+    auto node = add_empty_node(graph);
+    to_destroy.push_back(node);
+
     std::vector<cudaGraphNode_t> to_destroy;
     for (auto epoch = 0ul; epoch < p.epochs; ++epoch) {
+        // last row of `slots` kernels
         std::vector<cudaGraphNode_t> old_nodes;
         for (auto kernel = 0ul; kernel < p.kernels_per_slot; ++kernel) {
+            // add a row of `slots` kernels
             std::vector<cudaGraphNode_t> nodes;
             for (auto slot = 0ul; slot < p.slots; ++slot) {
-                auto node = add_kernel_node(graph, p, func, args);
+                auto node = add_kernel_node(graph, p, func, offset_parameter(as)...);
                 to_destroy.push_back(node);
                 nodes.push_back(std::move(node));
             }
+            // At the beginning of an epoch all kernels depend on the fan-out
             if (kernel == 0ul) {
-                auto node = add_empty_node(graph);
-                to_destroy.push_back(node);
-                add_dependencies(graph, node, nodes);
+                add_dependencies(graph, last, nodes);
+                old_nodes = nodes;
                 continue;
             }
+            // At the of end an epoch all kernels join into a new dummy node
             if (kernel == p.kernels_per_slot - 1) {
-                auto node = add_empty_node(graph);
-                to_destroy.push_back(node);
-                add_dependencies(graph, nodes, node);
+                last = add_empty_node(graph);
+                to_destroy.push_back(last);
+                add_dependencies(graph, nodes, last);
                 continue;
             }
+            // Anywhere in between the current row depends on the last row
             add_dependencies(graph, old_nodes, nodes);
             old_nodes = nodes;
         }
@@ -99,7 +97,7 @@ auto make_graph(const benchmark_parameters& p, K func, As... as) {
 template<typename K, typename... As>
 auto bench_graph(const benchmark_parameters& p, K kernel, As... as) {
     auto graph = make_graph(p, kernel, as...);
-    cudaStream_t stream   = {0};
+    cudaStream_t stream = {0};
     cuda_api(cudaStreamCreate, &stream);
     cudaGraphExec_t instance = {0};
     cuda_api(cudaGraphInstantiate, &instance, graph, nullptr, nullptr, 0);
@@ -115,20 +113,20 @@ auto bench_graph(const benchmark_parameters& p, K kernel, As... as) {
     cuda_api(cudaGraphExecDestroy, instance);
     cuda_api(cudaGraphDestroy, graph);
     cuda_api(cudaStreamDestroy, stream);
-
     return res;
 }
 
 template<typename K, typename... As>
 auto bench_graph_update(const benchmark_parameters& p, K kernel, As... as) {
     auto graph = make_graph(p, kernel, as...);
-    cudaStream_t stream   = {0};
+    auto update = make_graph(p, kernel, as...);
+    cudaStream_t stream = {0};
     cuda_api(cudaStreamCreate, &stream);
     cudaGraphExec_t instance = {0};
     cuda_api(cudaGraphInstantiate, &instance, graph, nullptr, nullptr, 0);
     std::vector<double> res;
     for (auto rep = 0; rep < p.repetitions; ++rep) {
-        auto update = make_graph(p, kernel, as...);
+
         cudaGraphNode_t error_node;
         cudaGraphExecUpdateResult update_result;
         cuda_api(cudaGraphExecUpdate, instance, update, &error_node, &update_result);
@@ -143,14 +141,12 @@ auto bench_graph_update(const benchmark_parameters& p, K kernel, As... as) {
     cuda_api(cudaGraphExecDestroy, instance);
     cuda_api(cudaGraphDestroy, graph);
     cuda_api(cudaStreamDestroy, stream);
-
     return res;
 }
 
 template<typename K, typename... As>
 auto bench_graph_split(const benchmark_parameters& p, K kernel, As... as) {
-    auto q = p;
-    q.epochs = 1;
+    auto q = p; q.epochs = 1;
     auto graph = make_graph(q, kernel, as...);
     cudaStream_t stream   = {0};
     cuda_api(cudaStreamCreate, &stream);
@@ -176,10 +172,11 @@ auto bench_graph_split(const benchmark_parameters& p, K kernel, As... as) {
 
 template<typename K, typename... As>
 auto bench_graph_split_update(const benchmark_parameters& p, K kernel, As... as) {
-    auto q = p;
-    q.epochs = 1;
+    auto q = p; q.epochs = 1;
     auto graph = make_graph(q, kernel, as...);
-    cudaStream_t stream   = {0};
+    auto update = make_graph(q, kernel, as...);
+
+    cudaStream_t stream = {0};
     cuda_api(cudaStreamCreate, &stream);
     cudaGraphExec_t instance = {0};
     cuda_api(cudaGraphInstantiate, &instance, graph, nullptr, nullptr, 0);
@@ -188,7 +185,6 @@ auto bench_graph_split_update(const benchmark_parameters& p, K kernel, As... as)
         auto t0 = timer::now();
         device_synch();
         for (auto epoch = 0ul; epoch < p.epochs; ++epoch) {
-            auto update = make_graph(q, kernel, as...);
             cudaGraphNode_t error_node;
             cudaGraphExecUpdateResult update_result;
             cuda_api(cudaGraphExecUpdate, instance, update, &error_node, &update_result);
