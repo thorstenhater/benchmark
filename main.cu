@@ -1,5 +1,5 @@
 #include "util.hpp"
-#include "util_cuda.hpp"
+#include "util_cuda.h"
 
 #include "streams.hcu"
 #include "graphs.hcu"
@@ -34,8 +34,8 @@ int main(int argc, char** argv) {
 
     auto total_kernels = parameters.slots*parameters.kernels_per_slot;
     assert(0 == parameters.array_size % total_kernels);
-    p.array_size_per_kernel = parameters.array_size/total_kernels;
-    parameters.blocks = (elements_per_kernel + parameters.threads - 1)/parameters.threads;
+    parameters.array_size_per_kernel = parameters.array_size/total_kernels;
+    parameters.blocks = (parameters.array_size_per_kernel + parameters.threads - 1)/parameters.threads;
 
     std::cout << "array_size          = " << parameters.array_size  << std::endl;
     std::cout << "epochs              = " << parameters.epochs << std::endl;
