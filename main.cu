@@ -11,6 +11,7 @@ int main(int argc, char** argv) {
     parameters.kernels_per_slot = read_arg(argc, argv, 3, 4);
     parameters.array_size       = 1 << read_arg(argc, argv, 4, 20);
     parameters.threads          = read_arg(argc, argv, 5, 128);
+    parameters.repetitions      = read_arg(argc, argv, 6, 10);
 
     auto total_kernels = parameters.slots*parameters.kernels_per_slot;
     assert(0 == parameters.array_size % total_kernels);
@@ -18,10 +19,13 @@ int main(int argc, char** argv) {
     parameters.blocks = (parameters.array_size_per_kernel + parameters.threads - 1)/parameters.threads;
 
     std::cout << "array_size          = " << parameters.array_size  << std::endl;
+    std::cout << "array_size per task = " << parameters.array_size_per_kernel << std::endl;
     std::cout << "epochs              = " << parameters.epochs << std::endl;
+    std::cout << "repetitions         = " << parameters.repetitions << std::endl;
     std::cout << "slots               = " << parameters.slots << std::endl;
     std::cout << "kernels_per_slots   = " << parameters.kernels_per_slot << std::endl;
     std::cout << "block_dim           = " << parameters.threads << std::endl;
+    std::cout << "grid_dim            = " << parameters.blocks << std::endl;
 
     double* xh = malloc_host<double>(parameters.array_size);
     double* yh = malloc_host<double>(parameters.array_size);
@@ -36,12 +40,15 @@ int main(int argc, char** argv) {
     copy_to_device<double>(yh, yd, parameters.array_size);
 
     start_gpu_prof();
-    auto result = bench_graph(parameters, empty);
+    auto result = bench_streams_st(parameters, newton, 5ul, xd, parameters.array_size_per_kernel);
     stop_gpu_prof();
 
     for (const auto t: result) {
       std::cout << t << '\n';
     }
+
+    copy_to_host<double>(xd, xh, parameters.array_size);
+    copy_to_host<double>(yd, yh, parameters.array_size);
 
     std::free(xh);
     std::free(yh);
