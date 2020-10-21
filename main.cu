@@ -3,6 +3,7 @@
 
 #include "streams.hcu"
 #include "graphs.hcu"
+#include "simple.hcu"
 
 int main(int argc, char** argv) {
     benchmark_parameters parameters;
@@ -19,11 +20,11 @@ int main(int argc, char** argv) {
     parameters.blocks = (parameters.array_size_per_kernel + parameters.threads - 1)/parameters.threads;
 
     std::cout << "array_size          = " << parameters.array_size  << std::endl;
-    std::cout << "array_size per task = " << parameters.array_size_per_kernel << std::endl;
+    std::cout << "array_size_per_task = " << parameters.array_size_per_kernel << std::endl;
     std::cout << "epochs              = " << parameters.epochs << std::endl;
     std::cout << "repetitions         = " << parameters.repetitions << std::endl;
     std::cout << "slots               = " << parameters.slots << std::endl;
-    std::cout << "kernels_per_slots   = " << parameters.kernels_per_slot << std::endl;
+    std::cout << "kernels_per_slot    = " << parameters.kernels_per_slot << std::endl;
     std::cout << "block_dim           = " << parameters.threads << std::endl;
     std::cout << "grid_dim            = " << parameters.blocks << std::endl;
 

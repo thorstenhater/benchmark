@@ -1,6 +1,7 @@
 import subprocess as sp
 
-for case, out in [('bench_streams_st',         'streams-st.txt'),
+for case, out in [('bench_simple',             'simple.txt'),
+                  ('bench_streams_st',         'streams-st.txt'),
                   ('bench_streams_mt',         'streams-mt.txt'),
                   ('bench_graph',              'graphs-single.txt'),
                   ('bench_graph_split',        'graphs-split.txt'),
