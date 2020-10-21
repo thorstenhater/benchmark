@@ -40,12 +40,13 @@ int main(int argc, char** argv) {
     copy_to_device<double>(yh, yd, parameters.array_size);
 
     start_gpu_prof();
-    auto result = bench_streams_st(parameters, newton, 5ul, xd, parameters.array_size_per_kernel);
+    auto result = CASE(parameters, newton, 5ul, xd, parameters.array_size_per_kernel);
     stop_gpu_prof();
 
     for (const auto t: result) {
-      std::cout << t << '\n';
+      std::cout << t << ',';
     }
+    std::cout << '\n';
 
     copy_to_host<double>(xd, xh, parameters.array_size);
     copy_to_host<double>(yd, yh, parameters.array_size);
