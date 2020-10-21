@@ -4,7 +4,7 @@
 #include "kernels.hcu"
 
 template<typename K, typename... As>
-auto bench_stream_st(const benchmark_parameters& p, K kernel, As... as) {
+auto bench_streams_st(const benchmark_parameters& p, K kernel, As... as) {
     std::vector<cudaStream_t> streams{p.slots, 0};
     for (auto& stream: streams) cudaStreamCreate(&stream);
 
@@ -34,7 +34,7 @@ auto bench_stream_st(const benchmark_parameters& p, K kernel, As... as) {
 }
 
 template<typename K, typename... As>
-auto bench_stream_mt(const benchmark_parameters& p, K kernel, As... as) {
+auto bench_streams_mt(const benchmark_parameters& p, K kernel, As... as) {
     std::vector<cudaStream_t> streams{p.slots, 0};
     for (auto& stream: streams) cudaStreamCreate(&stream);
 
