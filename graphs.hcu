@@ -110,13 +110,13 @@ auto bench_graph(const benchmark_parameters& p, K kernel, As... as) {
 template<typename K, typename... As>
 auto bench_graph_update(const benchmark_parameters& p, K kernel, As... as) {
     auto graph = make_graph(p, kernel, as...);
-    auto update = make_graph(p, kernel, as...);
     cudaStream_t stream = {0};
     cuda_api(cudaStreamCreate, &stream);
     cudaGraphExec_t instance = {0};
     cuda_api(cudaGraphInstantiate, &instance, graph, nullptr, nullptr, 0);
     std::vector<double> res;
     for (auto rep = 0; rep < p.repetitions; ++rep) {
+        auto update = make_graph(p, kernel, as...);
         cudaGraphNode_t error_node;
         cudaGraphExecUpdateResult update_result;
         cuda_api(cudaGraphExecUpdate, instance, update, &error_node, &update_result);
@@ -138,7 +138,7 @@ template<typename K, typename... As>
 auto bench_graph_split(const benchmark_parameters& p, K kernel, As... as) {
     auto q = p; q.epochs = 1;
     auto graph = make_graph(q, kernel, as...);
-    cudaStream_t stream   = {0};
+    cudaStream_t stream = {0};
     cuda_api(cudaStreamCreate, &stream);
     cudaGraphExec_t instance = {0};
     cuda_api(cudaGraphInstantiate, &instance, graph, nullptr, nullptr, 0);
@@ -164,7 +164,6 @@ template<typename K, typename... As>
 auto bench_graph_split_update(const benchmark_parameters& p, K kernel, As... as) {
     auto q = p; q.epochs = 1;
     auto graph = make_graph(q, kernel, as...);
-    auto update = make_graph(q, kernel, as...);
 
     cudaStream_t stream = {0};
     cuda_api(cudaStreamCreate, &stream);
@@ -177,6 +176,7 @@ auto bench_graph_split_update(const benchmark_parameters& p, K kernel, As... as)
         for (auto epoch = 0ul; epoch < p.epochs; ++epoch) {
             cudaGraphNode_t error_node;
             cudaGraphExecUpdateResult update_result;
+	    auto update = make_graph(q, kernel, as...);
             cuda_api(cudaGraphExecUpdate, instance, update, &error_node, &update_result);
             cuda_api(cudaGraphDestroy, update);
             cuda_api(cudaGraphLaunch, instance, stream);
