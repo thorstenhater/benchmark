@@ -1,7 +1,7 @@
 #pragma once
 
 #include "util.hpp"
-#include "util_cuda.h"
+
 #include "kernels.hcu"
 
 template<typename K, typename... As>
@@ -14,7 +14,7 @@ auto bench_simple(const benchmark_parameters& p, K kernel, As... as) {
 	    for (auto slot = 0ul; slot < p.slots; ++slot) {
 	        for (auto k = 0ul; k < p.kernels_per_slot; ++k) {
 		    auto kernel_idx = k + slot*p.kernels_per_slot;
-		    kernel<<<p.blocks, p.threads>>>(offset_parameter(as, p.array_size_per_kernel, kernel_idx)...);
+		    kernel<<<p.grid_dim, p.block_dim>>>(offset_and_forward(as, p.array_size_per_kernel, kernel_idx)...);
 		}
 	    }
         }

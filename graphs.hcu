@@ -1,5 +1,5 @@
 #include "util.hpp"
-#include "util_cuda.h"
+
 #include "kernels.hcu"
 
 #define cuda_api(f, ...) do { check_status(f(__VA_ARGS__)); } while (0)
@@ -16,8 +16,8 @@ cudaGraphNode_t add_kernel_node(cudaGraph_t& graph, const benchmark_parameters& 
     cudaGraphNode_t node = {0};
     cudaKernelNodeParams params = {0};
     params.func           = (void*) kernel;
-    params.gridDim        = p.blocks;
-    params.blockDim       = p.threads;
+    params.gridDim        = p.grid_dim;
+    params.blockDim       = p.block_dim;
     params.sharedMemBytes = 0;
     params.kernelParams   = (void**) args.data();
     params.extra          = nullptr;
@@ -65,7 +65,7 @@ auto make_graph(const benchmark_parameters& p, K func, As... as) {
             std::vector<cudaGraphNode_t> nodes;
             for (auto slot = 0ul; slot < p.slots; ++slot) {
                 auto kernel_idx = slot + kernel*p.slots;
-                auto node = add_kernel_node(graph, p, func, offset_parameter(as, p.array_size_per_kernel, kernel_idx)...);
+                auto node = add_kernel_node(graph, p, func, offset_and_forward(as, p.array_size_per_kernel, kernel_idx)...);
                 nodes.push_back(std::move(node));
             }
             // At the beginning of an epoch all kernels depend on the fan-out

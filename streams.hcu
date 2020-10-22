@@ -1,5 +1,4 @@
 #include "util.hpp"
-#include "util_cuda.h"
 
 #include "kernels.hcu"
 
@@ -11,7 +10,7 @@ auto bench_streams_st(const benchmark_parameters& p, K kernel, As... as) {
     auto thread_runner = [&](unsigned stream_idx) {
         for (unsigned k = 0; k < p.kernels_per_slot; ++k) {
             unsigned kernel_idx   = k + stream_idx * p.kernels_per_slot;
-            kernel<<<p.blocks, p.threads, 0, streams[stream_idx]>>>(offset_parameter(as, p.array_size_per_kernel, kernel_idx)...);
+            kernel<<<p.grid_dim, p.block_dim, 0, streams[stream_idx]>>>(offset_and_forward(as, p.array_size_per_kernel, kernel_idx)...);
         }
     };
 
@@ -41,7 +40,7 @@ auto bench_streams_mt(const benchmark_parameters& p, K kernel, As... as) {
     auto thread_runner = [&](unsigned stream_idx) {
         for (unsigned k = 0; k < p.kernels_per_slot; ++k) {
             unsigned kernel_idx   = k + stream_idx * p.kernels_per_slot;
-            kernel<<<p.blocks, p.threads, 0, streams[stream_idx]>>>(offset_parameter(as, p.array_size_per_kernel, kernel_idx)...);
+            kernel<<<p.grid_dim, p.block_dim, 0, streams[stream_idx]>>>(offset_and_forward(as, p.array_size_per_kernel, kernel_idx)...);
         }
     };
 
